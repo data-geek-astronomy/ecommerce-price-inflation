@@ -36,6 +36,42 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 
+def generate_sample_data():
+    """Generate sample data if it doesn't exist."""
+    import logging
+    import sys
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # Add src to path
+    src_path = Path(__file__).parent.parent / "src"
+    sys.path.insert(0, str(src_path))
+
+    try:
+        from scraper.price_scraper import PriceScraper
+        from utils.config import load_config
+
+        config = load_config()
+
+        # Generate price data
+        logger.info("Generating sample price data...")
+        scraper = PriceScraper(output_dir=config.DATA_RAW_DIR)
+        sample_data = scraper.get_sample_data()
+        scraper.save_to_csv(sample_data, "prices_20260615.csv")
+
+        # Run analysis
+        logger.info("Running analysis pipeline...")
+        from analysis.main_analysis import run_analysis
+        results = run_analysis()
+
+        logger.info("Data generation complete!")
+        return True
+    except Exception as e:
+        logger.error(f"Error generating data: {e}")
+        return False
+
+
 @st.cache_data
 def load_data():
     """Load analysis results from processed data directory."""
@@ -43,18 +79,29 @@ def load_data():
     possible_paths = [
         Path(__file__).parent.parent / "data" / "processed",  # Local development
         Path.cwd() / "data" / "processed",                     # Current working directory
-        Path.cwd() / "stripe portfolio project" / "data" / "processed",  # Full path
+        Path.cwd() / "ecommerce-price-inflation" / "data" / "processed",  # Streamlit Cloud
     ]
 
     base_path = None
     for path in possible_paths:
-        if path.exists():
+        if path.exists() and any(path.glob("*.csv")):
             base_path = path
             break
 
+    # If no data found, generate it
     if base_path is None:
-        st.error(f"Data directory not found. Checked: {[str(p) for p in possible_paths]}")
-        st.info("Please run: `python src/scraper/main.py` and `python src/analysis/main_analysis.py`")
+        with st.spinner("📊 Generating sample data for first run..."):
+            generate_sample_data()
+
+        # Try paths again after generation
+        for path in possible_paths:
+            if path.exists() and any(path.glob("*.csv")):
+                base_path = path
+                break
+
+    if base_path is None:
+        st.error("❌ Unable to generate or find data.")
+        st.info("Please run locally:\n```\npython src/scraper/main.py\npython src/analysis/main_analysis.py\n```")
         return None
 
     data = {}
