@@ -164,7 +164,7 @@ export BLS_API_KEY="your_key_here"
 
 ## Contact & Resources
 
-- **Email**: rahulreddy12365@gmail.com
+- **Email**: aravind.kumar.nalukurthi@gmail.com
 - **GitHub**: [Repository URL]
 - **Documentation**: See README.md and METHODOLOGY.md
 - **BLS API**: https://www.bls.gov/developers/

@@ -266,4 +266,4 @@ ecommerce-price-inflation/     ← Root directory
 
 **Status**: ✅ Ready to Deploy
 **Last Updated**: June 15, 2026
-**Author**: Rahul Reddy (rahulreddy12365@gmail.com)
+**Author**: Aravind Kumar Nalukurthi (aravind.kumar.nalukurthi@gmail.com)

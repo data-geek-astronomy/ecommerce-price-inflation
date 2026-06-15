@@ -121,5 +121,5 @@ MIT License - see LICENSE file for details
 
 ## Contact
 
-Built by [Your Name]
-Email: rahulreddy12365@gmail.com
+Built by Aravind Kumar Nalukurthi
+Email: aravind.kumar.nalukurthi@gmail.com
