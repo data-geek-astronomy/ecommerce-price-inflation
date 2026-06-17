@@ -39,123 +39,84 @@ st.markdown("""
 def generate_embedded_data():
     """Generate sample data embedded in the app."""
     try:
-        categories = ['Electronics', 'Home & Garden', 'Sports', 'Books', 'Fashion']
-        platforms = ['Amazon', 'Best Buy', 'Walmart']
-
-        # Generate prices
-        prices_data = []
-        base_date = datetime.now() - timedelta(days=180)
-
         np.random.seed(42)
 
+        categories = ['Electronics', 'Home & Garden', 'Sports', 'Books', 'Fashion']
+
+        # Generate simple prices data
+        prices_list = []
+        base_date = datetime.now() - timedelta(days=180)
+
         for day in range(180):
-            current_date = base_date + timedelta(days=day)
-            for _ in range(5):
-                price = np.random.uniform(20, 500)
-                prices_data.append({
-                    'timestamp': current_date.isoformat(),
-                    'platform': np.random.choice(platforms),
-                    'product_id': f"PROD_{np.random.randint(1000, 9999)}",
-                    'category': np.random.choice(categories),
-                    'price': round(float(price), 2),
-                    'currency': 'USD'
+            date = base_date + timedelta(days=day)
+            for cat in categories:
+                price = 100 + np.random.normal(0, 20)
+                prices_list.append({
+                    'timestamp': date,
+                    'category': cat,
+                    'price': max(10, price),
+                    'platform': 'Mixed'
                 })
 
-        prices_df = pd.DataFrame(prices_data)
-        prices_df['timestamp'] = pd.to_datetime(prices_df['timestamp'])
-    except Exception as e:
-        st.error(f"Error generating prices: {e}")
-        return None
+        prices_df = pd.DataFrame(prices_list)
 
-        # Calculate trends
-        trends = []
-        for category in prices_df['category'].unique():
-            cat_data = prices_df[prices_df['category'] == category].copy()
-            cat_data = cat_data.set_index('timestamp').resample('D')['price'].mean()
-
-            sma = cat_data.rolling(window=30).mean()
-            ema = cat_data.ewm(span=30).mean()
-            momentum = cat_data.pct_change(30, fill_method=None)
-
-            trends.append({
-                'category': category,
-                'latest_price': float(cat_data.iloc[-1]),
-                'ma_30': float(sma.iloc[-1]) if not pd.isna(sma.iloc[-1]) else 0,
-                'ema_30': float(ema.iloc[-1]) if not pd.isna(ema.iloc[-1]) else 0,
-                'momentum': float(momentum.iloc[-1]) if not pd.isna(momentum.iloc[-1]) else 0,
-                'avg_price': float(cat_data.mean()),
-                'price_volatility': float(cat_data.std())
+        # Generate trends
+        trends_list = []
+        for cat in categories:
+            cat_prices = prices_df[prices_df['category'] == cat]['price']
+            trends_list.append({
+                'category': cat,
+                'latest_price': float(cat_prices.iloc[-1]),
+                'avg_price': float(cat_prices.mean()),
+                'price_volatility': float(cat_prices.std()),
+                'ma_30': float(cat_prices.tail(30).mean()),
+                'ema_30': float(cat_prices.tail(30).mean()),
+                'momentum': 0.05
             })
 
-        trends_df = pd.DataFrame(trends)
+        trends_df = pd.DataFrame(trends_list)
 
-        # Calculate inflation
-        inflation = []
-        for category in prices_df['category'].unique():
-            cat_data = prices_df[prices_df['category'] == category].copy()
-            cat_data = cat_data.set_index('timestamp').resample('D')['price'].mean()
-            pct_change = cat_data.pct_change(7, fill_method=None) * 100
-
-            inflation.append({
-                'category': category,
-                'inflation_rate': float(pct_change.iloc[-1]) if not pd.isna(pct_change.iloc[-1]) else 0,
-                'avg_inflation': float(pct_change.mean()),
-                'inflation_volatility': float(pct_change.std())
+        # Generate inflation rates
+        inflation_list = []
+        for cat in categories:
+            inflation_list.append({
+                'category': cat,
+                'inflation_rate': float(np.random.uniform(-20, 80)),
+                'avg_inflation': 25.0,
+                'inflation_volatility': 15.0
             })
 
-        inflation_df = pd.DataFrame(inflation)
+        inflation_df = pd.DataFrame(inflation_list)
 
-        # Build indices
-        indices = []
-        base_year = 2025
-
-        for category in prices_df['category'].unique():
-            cat_data = prices_df[prices_df['category'] == category].copy()
-            cat_data = cat_data.set_index('timestamp').resample('D')['price'].mean()
-            base_price = cat_data[cat_data.index.year == base_year].mean()
-
-            if pd.isna(base_price) or base_price == 0:
-                base_price = cat_data.mean()
-
-            index_values = (cat_data / base_price) * 100
-
-            for date, value in index_values.items():
-                indices.append({
+        # Generate indices
+        indices_list = []
+        for day in range(180):
+            date = base_date + timedelta(days=day)
+            for cat in categories:
+                indices_list.append({
                     'date': date,
-                    'category': category,
-                    'index': round(float(value), 2),
-                    'base_year': base_year
+                    'category': cat,
+                    'index': float(95 + np.random.normal(0, 5)),
+                    'base_year': 2025
                 })
 
-        indices_df = pd.DataFrame(indices)
+        indices_df = pd.DataFrame(indices_list)
 
-        # Aggregate index
-        aggregate = []
-        categories_list = list(indices_df['category'].unique())
-        weights = {cat: 1.0/len(categories_list) for cat in categories_list}
-
-        for date in indices_df['date'].unique():
-            date_data = indices_df[indices_df['date'] == date]
-            weighted_index = 0.0
-
-            for _, row in date_data.iterrows():
-                category = row['category']
-                if category in weights:
-                    weighted_index += float(row['index']) * weights[category]
-
-            aggregate.append({
+        # Generate aggregate index
+        aggregate_list = []
+        for day in range(180):
+            date = base_date + timedelta(days=day)
+            aggregate_list.append({
                 'date': date,
-                'aggregate_index': round(float(weighted_index), 2),
+                'aggregate_index': float(98 + np.random.normal(0, 3)),
                 'type': 'Weighted Aggregate'
             })
 
-        aggregate_df = pd.DataFrame(aggregate)
+        aggregate_df = pd.DataFrame(aggregate_list)
 
-        # CPI data
+        # Generate CPI data
         cpi_dates = pd.date_range(start='2022-01-01', periods=24, freq='MS')
-        base_cpi = 290.0
-        cpi_noise = np.cumsum(np.random.normal(1, 0.5, len(cpi_dates)))
-        cpi_values = base_cpi + cpi_noise
+        cpi_values = 290 + np.cumsum(np.random.normal(0.5, 0.3, len(cpi_dates)))
 
         cpi_df = pd.DataFrame({
             'date': cpi_dates,
@@ -172,7 +133,9 @@ def generate_embedded_data():
         }
 
     except Exception as e:
-        st.error(f"Critical error in data generation: {str(e)}")
+        st.error(f"Error in data generation: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
         return None
 
 
