@@ -3,7 +3,6 @@ E-Commerce Price Inflation Dynamics - Interactive Dashboard
 Built with Streamlit for real-time economic analysis
 """
 
-import sys
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -11,6 +10,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
 from datetime import datetime, timedelta
+import random
 
 # Set page config
 st.set_page_config(
@@ -36,73 +36,185 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 
-def generate_sample_data():
-    """Generate sample data if it doesn't exist."""
-    import logging
-    import sys
-
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-
-    # Add src to path
-    src_path = Path(__file__).parent.parent / "src"
-    sys.path.insert(0, str(src_path))
-
+def generate_embedded_data():
+    """Generate sample data embedded in the app."""
     try:
-        from scraper.price_scraper import PriceScraper
-        from utils.config import load_config
+        categories = ['Electronics', 'Home & Garden', 'Sports', 'Books', 'Fashion']
+        platforms = ['Amazon', 'Best Buy', 'Walmart']
 
-        config = load_config()
+        # Generate prices
+        prices_data = []
+        base_date = datetime.now() - timedelta(days=180)
 
-        # Generate price data
-        logger.info("Generating sample price data...")
-        scraper = PriceScraper(output_dir=config.DATA_RAW_DIR)
-        sample_data = scraper.get_sample_data()
-        scraper.save_to_csv(sample_data, "prices_20260615.csv")
+        np.random.seed(42)
 
-        # Run analysis
-        logger.info("Running analysis pipeline...")
-        from analysis.main_analysis import run_analysis
-        results = run_analysis()
+        for day in range(180):
+            current_date = base_date + timedelta(days=day)
+            for _ in range(5):
+                price = np.random.uniform(20, 500)
+                prices_data.append({
+                    'timestamp': current_date.isoformat(),
+                    'platform': np.random.choice(platforms),
+                    'product_id': f"PROD_{np.random.randint(1000, 9999)}",
+                    'category': np.random.choice(categories),
+                    'price': round(float(price), 2),
+                    'currency': 'USD'
+                })
 
-        logger.info("Data generation complete!")
-        return True
+        prices_df = pd.DataFrame(prices_data)
+        prices_df['timestamp'] = pd.to_datetime(prices_df['timestamp'])
     except Exception as e:
-        logger.error(f"Error generating data: {e}")
-        return False
+        st.error(f"Error generating prices: {e}")
+        return None
+
+        # Calculate trends
+        trends = []
+        for category in prices_df['category'].unique():
+            cat_data = prices_df[prices_df['category'] == category].copy()
+            cat_data = cat_data.set_index('timestamp').resample('D')['price'].mean()
+
+            sma = cat_data.rolling(window=30).mean()
+            ema = cat_data.ewm(span=30).mean()
+            momentum = cat_data.pct_change(30, fill_method=None)
+
+            trends.append({
+                'category': category,
+                'latest_price': float(cat_data.iloc[-1]),
+                'ma_30': float(sma.iloc[-1]) if not pd.isna(sma.iloc[-1]) else 0,
+                'ema_30': float(ema.iloc[-1]) if not pd.isna(ema.iloc[-1]) else 0,
+                'momentum': float(momentum.iloc[-1]) if not pd.isna(momentum.iloc[-1]) else 0,
+                'avg_price': float(cat_data.mean()),
+                'price_volatility': float(cat_data.std())
+            })
+
+        trends_df = pd.DataFrame(trends)
+
+        # Calculate inflation
+        inflation = []
+        for category in prices_df['category'].unique():
+            cat_data = prices_df[prices_df['category'] == category].copy()
+            cat_data = cat_data.set_index('timestamp').resample('D')['price'].mean()
+            pct_change = cat_data.pct_change(7, fill_method=None) * 100
+
+            inflation.append({
+                'category': category,
+                'inflation_rate': float(pct_change.iloc[-1]) if not pd.isna(pct_change.iloc[-1]) else 0,
+                'avg_inflation': float(pct_change.mean()),
+                'inflation_volatility': float(pct_change.std())
+            })
+
+        inflation_df = pd.DataFrame(inflation)
+
+        # Build indices
+        indices = []
+        base_year = 2025
+
+        for category in prices_df['category'].unique():
+            cat_data = prices_df[prices_df['category'] == category].copy()
+            cat_data = cat_data.set_index('timestamp').resample('D')['price'].mean()
+            base_price = cat_data[cat_data.index.year == base_year].mean()
+
+            if pd.isna(base_price) or base_price == 0:
+                base_price = cat_data.mean()
+
+            index_values = (cat_data / base_price) * 100
+
+            for date, value in index_values.items():
+                indices.append({
+                    'date': date,
+                    'category': category,
+                    'index': round(float(value), 2),
+                    'base_year': base_year
+                })
+
+        indices_df = pd.DataFrame(indices)
+
+        # Aggregate index
+        aggregate = []
+        categories_list = list(indices_df['category'].unique())
+        weights = {cat: 1.0/len(categories_list) for cat in categories_list}
+
+        for date in indices_df['date'].unique():
+            date_data = indices_df[indices_df['date'] == date]
+            weighted_index = 0.0
+
+            for _, row in date_data.iterrows():
+                category = row['category']
+                if category in weights:
+                    weighted_index += float(row['index']) * weights[category]
+
+            aggregate.append({
+                'date': date,
+                'aggregate_index': round(float(weighted_index), 2),
+                'type': 'Weighted Aggregate'
+            })
+
+        aggregate_df = pd.DataFrame(aggregate)
+
+        # CPI data
+        cpi_dates = pd.date_range(start='2022-01-01', periods=24, freq='MS')
+        base_cpi = 290.0
+        cpi_noise = np.cumsum(np.random.normal(1, 0.5, len(cpi_dates)))
+        cpi_values = base_cpi + cpi_noise
+
+        cpi_df = pd.DataFrame({
+            'date': cpi_dates,
+            'cpi_value': cpi_values.round(2)
+        })
+
+        return {
+            'prices': prices_df,
+            'trends': trends_df,
+            'inflation': inflation_df,
+            'category_indices': indices_df,
+            'aggregate_index': aggregate_df,
+            'cpi_data': cpi_df
+        }
+
+    except Exception as e:
+        st.error(f"Critical error in data generation: {str(e)}")
+        return None
 
 
 @st.cache_data
 def load_data():
-    """Load analysis results from processed data directory."""
-    # Try multiple possible paths
+    """Load or generate analysis data."""
+    # Try to load from files first
     possible_paths = [
-        Path(__file__).parent.parent / "data" / "processed",  # Local development
-        Path.cwd() / "data" / "processed",                     # Current working directory
-        Path.cwd() / "ecommerce-price-inflation" / "data" / "processed",  # Streamlit Cloud
+        Path(__file__).parent.parent / "data" / "processed",
+        Path.cwd() / "data" / "processed",
+        Path.cwd() / "ecommerce-price-inflation" / "data" / "processed",
     ]
 
-    base_path = None
-    for path in possible_paths:
-        if path.exists() and any(path.glob("*.csv")):
-            base_path = path
-            break
+    for base_path in possible_paths:
+        try:
+            if base_path.exists() and (base_path / "prices_20260615.csv").exists():
+                data = {}
+                data['prices'] = pd.read_csv(base_path / "prices_20260615.csv")
+                data['trends'] = pd.read_csv(base_path / "price_trends.csv")
+                data['inflation'] = pd.read_csv(base_path / "inflation_rates.csv")
+                data['category_indices'] = pd.read_csv(base_path / "category_indices.csv")
+                data['aggregate_index'] = pd.read_csv(base_path / "aggregate_index.csv")
+                data['cpi_data'] = pd.read_csv(base_path / "cpi_data.csv")
 
-    # If no data found, generate it
-    if base_path is None:
-        with st.spinner("📊 Generating sample data for first run..."):
-            generate_sample_data()
+                # Convert dates
+                data['prices']['timestamp'] = pd.to_datetime(data['prices']['timestamp'])
+                data['category_indices']['date'] = pd.to_datetime(data['category_indices']['date'])
+                data['aggregate_index']['date'] = pd.to_datetime(data['aggregate_index']['date'])
+                data['cpi_data']['date'] = pd.to_datetime(data['cpi_data']['date'])
 
-        # Try paths again after generation
-        for path in possible_paths:
-            if path.exists() and any(path.glob("*.csv")):
-                base_path = path
-                break
+                return data
+        except Exception as e:
+            continue
 
-    if base_path is None:
-        st.error("❌ Unable to generate or find data.")
-        st.info("Please run locally:\n```\npython src/scraper/main.py\npython src/analysis/main_analysis.py\n```")
-        return None
+    # If no files found, generate embedded data
+    with st.spinner("🔄 Generating sample data..."):
+        data = generate_embedded_data()
+        if data is not None:
+            return data
+        else:
+            st.error("❌ Failed to generate data. Please check the error above.")
+            return None
 
     data = {}
     try:
